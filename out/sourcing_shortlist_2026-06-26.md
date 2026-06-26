@@ -1,6 +1,6 @@
 # Signal — live scan, fresh pass (2026-06-26)
 
-**Thesis:** Frachtis — agent-native crypto + the control planes agents rely on (identity, permissions,
+**Thesis:** Pre-seed / early-stage fund — agent-native crypto + the control planes agents rely on (identity, permissions,
 routing, settlement, verifiability). **Method:** live web scan through the thesis lens, with
 point-in-time discipline (stale "2026" listicles and old accelerator cohorts filtered out — that
 filtering is the whole job).

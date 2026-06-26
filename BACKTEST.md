@@ -23,9 +23,11 @@ Copy `data/backtest/ground_truth.sample.json` to `ground_truth.json` and replace
 `public_handles` (github repo, site). Leave `windows` empty — Step 2 fills them.
 Validate `first_touch_date` against email/calendar, not memory.
 
-> A starter set built from Frachtis's *public* portfolio ships at
-> `data/backtest/ground_truth.frachtis.json` — now **10 real positives** (Index Network, OyaChat, Lys
-> Labs, Enclave Money, Turtle Club, Bless, Infinity Ground, Hyve, Aizel, Fireplace) **+ 7 real negatives**
+> A starter set built from the fund's *public* portfolio is kept as a local (git-ignored)
+> ground-truth file — now **10 real positives** (anonymized here as Company A — ZK identity, Company B —
+> stablecoin payments, Company C — agent data/indexing, Company D — onchain AI app platform, Company E —
+> DeFi liquidity routing, Company F — DePIN compute, Company G — verifiable agent execution, Company H —
+> wallet/permissions, Company I — settlement infra, Company J — agent messaging) **+ 7 real negatives**
 > (public fizzles, repo-verified: Iron Finance, Saddle Finance, Fei/Tribe DAO, Multichain, Nomad,
 > Zerebro, Showtime — see each row's `note` for the failure evidence + sources). Caveats: for positives
 > `obvious_date` is the public listing date and `sourcing_channel` is unknown (so the channel cut is

@@ -1,6 +1,6 @@
 # Signal — sourcing shortlist (manual pass)
 
-**Date:** 2026-06-25 · **Thesis:** Frachtis — agent-native crypto + the control planes agents rely on
+**Date:** 2026-06-25 · **Thesis:** Pre-seed / early-stage fund — agent-native crypto + the control planes agents rely on
 (identity, permissions, routing, settlement, verifiability).
 
 > This is a **manual run of Signal's methodology** (thesis-match → stage filter → reputation-weighted

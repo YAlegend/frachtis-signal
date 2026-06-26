@@ -165,4 +165,4 @@ BACKTEST.md · CLAUDE.md · docs/   playbook, operator guide, research
 ```
 
 *Fixtures in `data/fixtures/` are illustrative, not real companies. The thesis in `config/thesis.yaml`
-is derived from Frachtis's public writing and is meant to be edited.*
+is derived from the fund's public writing and is meant to be edited.*

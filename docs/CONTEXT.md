@@ -6,7 +6,7 @@ file. `CLAUDE.md` covers *how to run*; this covers *why*.
 
 ---
 
-## 1 · Who this is for — Frachtis
+## 1 · Who this is for — the fund
 
 - **What:** a crypto-native **pre-seed** venture fund. **$20M Fund I, launched June 2025.**
 - **People:** founded by **Xavier Meegan** (former CIO, Chorus One); investment partner **Brian Crain**
@@ -32,7 +32,7 @@ file. `CLAUDE.md` covers *how to run*; this covers *why*.
 
 ## 3 · Their worldview (the north star for every design choice)
 
-From Frachtis's own essays ("Why AI agents will use crypto rails", "When AI Can Do Everything, The Only
+From the fund's own essays ("Why AI agents will use crypto rails", "When AI Can Do Everything, The Only
 Thing Worth Building Is Control"):
 
 - AI agents will run on **crypto rails** because they're neutral, always-on, programmable, verifiable.
@@ -64,7 +64,7 @@ the clearest demo, but the roadmap is gated on a reliability test (§7).
 | **Word-boundary keyword matching** | Killed false positives like `defi` inside `defined`. |
 | **Anti-gaming penalty** (buzzword stuffing, anti-signals) | Public signal is noisy; the OpenClaw fallout showed hype ≠ substance. |
 | **Citation verification** (drop un-sourced claims) | Embodies the fund's verifiability thesis; partners must trust outputs. |
-| **Tiered model routing** — local triage → frontier synthesis | Cost at scale + privacy (sensitive decks stay local) + a *neutrality* parallel: open-weight models are the permissionless, non-revocable choice, just as Frachtis argues for crypto rails over revocable APIs. |
+| **Tiered model routing** — local triage → frontier synthesis | Cost at scale + privacy (sensitive decks stay local) + a *neutrality* parallel: open-weight models are the permissionless, non-revocable choice, just as the fund argues for crypto rails over revocable APIs. |
 | **Evals, not vibes** (`evals/`) | The reliability story the role grades hardest; changes are measured, not asserted. |
 | **Human-in-the-loop triage funnel, not an oracle** | Honest framing; precision improves over weeks via feedback, not magic. |
 
@@ -107,6 +107,6 @@ vulnerable. *Status: **written** — `docs/Quantum_Thesis.docx` (polished 2-page
 - Wire the **LLM scorer** with a labeled set for semantic fit.
 
 ## 10 · Full briefs (long-form, in this folder)
-- `docs/Frachtis_AI_Agent_Builder_Brief.md` — company/role/worldview, agent ideas, model strategy, connectors, application plan.
+- *(local-only)* builder brief — company/role/worldview, agent ideas, model strategy, connectors, application plan.
 - `docs/Signal_TPM_Brief_AIxFinance.md` — brainstorm, research synthesis, PRD, metrics framework, team RACI.
 - `docs/Signal_Phase0_Backtest_Plan.md` — the full backtest methodology.
