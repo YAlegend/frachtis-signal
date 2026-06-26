@@ -1,130 +1,168 @@
-# Signal — a thesis-driven dealflow sourcing agent
+# Signal — a thesis-driven dealflow sourcing + diligence agent
 
-Signal surfaces early-stage crypto/AI companies **before they're obvious**, scores each against a fund's thesis, and ships a ranked daily digest with source-linked rationales.
+Signal surfaces early-stage crypto/AI companies **before they're obvious**, scores each against a
+fund's *encoded thesis*, and ships a ranked, source-cited digest — plus a **Phase 0 backtest** that
+checks whether the sourcing signal is actually reliable.
 
-Built as a reference implementation of the "AI associate stack a modern crypto fund should have." It demonstrates the patterns that matter in production: a **custom MCP server** you own, **tiered model routing** (cheap local triage → frontier synthesis), **citation verification** (no claim survives without a source), and an **eval harness** instead of vibes.
+Built as a reference implementation of the AI associate stack a crypto pre-seed fund should have. It
+embodies the fund's own worldview: every claim is **verifiable** (source-linked), the pipeline runs
+within **defined rules** (a thesis/policy layer), and it **collapses a manual workflow** — sourcing,
+scoring, diligence, and a go/no-go reliability test.
 
-> Runs offline in `--demo` mode with bundled fixtures, so you can see output (and record a demo) before wiring a single API key.
+> Runs fully **offline** in `--demo` (bundled fixtures, no keys), so you can see output before wiring a
+> single API key — and it **runs itself in the cloud** via a GitHub Actions "Run" button.
+
+---
+
+## The honest part first — what the backtest found
+
+I didn't just build the sourcing tool; I built **the test of whether it works**. The Phase 0 backtest
+reconstructs *point-in-time* signal (GitHub via GH Archive, websites via the Wayback Machine — no
+look-ahead) and asks: *would Signal have surfaced real deals early enough to matter?*
+
+On the labeled set the verdict is **🟡 YELLOW — sourcing works in part**:
+
+| What it caught | Recall | Read |
+|---|---|---|
+| **Public-channel** deals (OSS / repos / sites) | **67%** | the slice public signal genuinely covers |
+| **Warm-intro / inbound** deals | **0%** | relationship-sourced deals have ~no public footprint |
+| Median **lead time** (for the ones caught) | **45 days early** | early enough to act |
+
+That's not a failure — it's the tool being **honest about its own limits**, which is exactly the
+discipline a fund needs. The finding drives the design: lean sourcing where it demonstrably works
+(public / OSS / hackathon / research), and put the higher-leverage bet on the **synthesis side** (the
+Memo agent). *Reliability here is a process — the eval loop — not a property of any single heuristic.*
+(Directional at small N; see `BACKTEST.md` and `out/backtest_report.md`.)
+
+---
+
+## Run it
+
+Three ways, cheapest first — all work with **zero API keys**:
+
+```bash
+# 1) Offline demo (needs only pyyaml). Writes out/digest.md + out/dashboard.html
+pip install pyyaml
+PYTHONPATH=src python -m signalfund --demo
+
+# 2) Interactive web UI — a Run button, Live/Demo toggle, scorer picker, signal toggles
+PYTHONPATH=src python -m signalfund.webapp          # opens http://127.0.0.1:8000
+
+# 3) In the cloud — GitHub Actions ▸ "Sourcing run" ▸ Run workflow
+#    Uses the runner's built-in GITHUB_TOKEN + heuristic scorer (no secrets), digest as an artifact.
+```
+
+Go live (real GitHub data) by adding a free `GITHUB_TOKEN` to `.env` and running
+`python -m signalfund --limit 40`. Open `out/digest.md` — that's the artifact a partner reads.
+
+---
+
+## What it scores — six signals, free + premium tiers
+
+The composite is a **weighted blend**: thesis-`fit` dominates (~60%), the quality signals corroborate
+(~40%), and a credibility adjustment screens noise. **Graceful absence:** any signal whose key is
+missing simply contributes 0 — it never penalises a good-fit company, so the system runs at whatever
+tier your keys allow.
+
+| Signal | Free source | Premium upgrade |
+|---|---|---|
+| `fit` · `traction` · `code_health` | GitHub REST | — |
+| `team` | GitHub (technical-CEO proxy, frontier-lab alum) | Harmonic (exits, talent-flow) |
+| `onchain` | DefiLlama + Blockscout (real TVL, holders) | **Nansen** (Smart-Money inflow + convergence) |
+| `social` | OpenRank (Farcaster reputation) | Neynar (smart-follower convergence) |
+| `pre_public` | arXiv / IACR / grants / ETHGlobal | Evertrace |
+| stage-gate / funding | — | **Messari** (down-ranks already-funded rounds) |
+| `network_radar` | Neynar + curated smart accounts | — (on-chain twin lives in Nansen) |
+
+Two **convergence twins** sit at the core: `network_radar` (which credible *Farcaster* accounts newly
+converge on) and Nansen Smart-Money (which credible *wallets* newly converge on) — the same "who
+credible is early" thesis on the social and on-chain layers. Premium sources are **scaffolded and
+fixture-tested**; their live field mappings need a paid key to validate (flagged in `CLAUDE.md`).
 
 ---
 
 ## Architecture
 
 ```
-                ┌───────────────────────────────────────────┐
-                │   ORCHESTRATOR  (src/signalfund/...)        │
-                │   gather → dedup → score → rank → digest    │
-                └───────────────────────────────────────────┘
-                   │              │                 │
-        ┌──────────┘     ┌────────┘        ┌────────┘
-        ▼                ▼                 ▼
-   SOURCES          SCORING            DIGEST
-   ├ github_velocity (★ own MCP)   thesis-fit 0–100      out/digest.md
-   ├ harmonic  (VC sourcing)       + rationale           out/digest.json
-   └ blockscout (on-chain)         + verified citations
+            ┌──────────────────────────────────────────────┐
+            │   ORCHESTRATOR  (src/signalfund/orchestrator) │
+            │   gather → dedup → enrich → score → digest    │
+            └──────────────────────────────────────────────┘
+               │              │                 │
+      ┌────────┘       ┌──────┘          ┌──────┘
+      ▼                ▼                 ▼
+   SOURCES         SCORING            OUTPUTS
+   ├ github_velocity (★ own MCP)   fit + 6 signals     out/digest.md / .json
+   ├ harmonic · messari · nansen   → blended 0–100      out/dashboard.html
+   ├ onchain · social · pre_public + risks (HARD/SOFT)  out/memos/<co>.md
+   └ network_radar · watchlist     + verified citations
                           │
-                   MODEL ROUTING (llm.py)
-                   local triage ──→ frontier synthesis
+                   MODEL ROUTING (llm.py) — provider-agnostic
+                   local/hosted triage ──→ frontier synthesis
 ```
 
-The **GitHub star-velocity** logic lives once in `src/signalfund/sources/github_velocity.py` and is exposed two ways: directly to the pipeline, and as an **MCP server** (`mcp_servers/github_velocity/`) you can register in Claude Code or any agent. Star *velocity* isn't a GitHub endpoint — you compute it from snapshots — which is exactly why it's worth building yourself.
-
----
-
-## Quickstart
-
-```bash
-# 1. Offline demo — no keys needed. Produces out/digest.md from bundled fixtures.
-pip install pyyaml
-PYTHONPATH=src python -m signalfund --demo
-
-# 2. See the scorer's eval scores (precision/recall on a labeled set)
-PYTHONPATH=src python evals/run_evals.py
-
-# 2b. Phase 0 backtest — would Signal have surfaced past deals, early? (offline demo)
-PYTHONPATH=src python -m signalfund.backtest --demo   # → out/backtest_report.md  (see BACKTEST.md)
-
-# 2c. Memo agent — company → source-cited investment memo (offline demo)
-PYTHONPATH=src python -m signalfund.memo --demo       # → out/memos/<company>.md
-
-# Every sourcing run also writes out/dashboard.html — open it in your browser for the visual digest.
-
-# 3. Go live (install extras + set keys in .env)
-pip install -e ".[live,llm,mcp]"
-cp .env.example .env        # then fill in keys
-python -m signalfund --limit 30
-```
-
-Open `out/digest.md` — that's the artifact a partner reads, and the thing to screen-share in a demo.
-
----
-
-## Wiring real data (optional)
-
-| Source | Env | Notes |
-|---|---|---|
-| GitHub velocity | `GITHUB_TOKEN` | Works without a token (lower rate limit). Token → higher limits. |
-| Harmonic (VC sourcing/enrichment) | `HARMONIC_API_KEY` | Disabled gracefully if unset. |
-| Blockscout (on-chain) | none | Public REST API; `BLOCKSCOUT_BASE_URL` to switch chains. |
-
-## Model routing
-
-Set in `.env`:
-
-- **Local triage** (high-volume, cheap): any OpenAI-compatible endpoint via `OLLAMA_BASE_URL` + `LOCAL_MODEL` (e.g. Ollama running `qwen2.5:14b`).
-- **Frontier synthesis** (the rationale partners read): `ANTHROPIC_API_KEY` + `FRONTIER_MODEL`.
-
-If no model is configured, Signal automatically falls back to the deterministic `HeuristicScorer` — which is also what powers offline demo mode.
-
-## Register the custom MCP in Claude Code
-
-`.mcp.json` is included. It registers your `github-velocity` server plus the hosted Blockscout/Harmonic MCPs so agents (and you, in Claude Code) can call them directly:
-
-```bash
-# run the MCP server standalone (stdio)
-pip install "mcp[cli]" httpx
-python mcp_servers/github_velocity/server.py
-```
+The **GitHub star-velocity** logic lives once in `sources/github_velocity.py` and is exposed two ways:
+to the pipeline, and as an **MCP server** (`mcp_servers/github_velocity/`) you can register in Claude
+Code. Velocity isn't a GitHub endpoint — you compute it from SQLite snapshots — which is exactly why
+it's worth owning. `watchlist` lets you drop any hand-found lead into `config/watchlist.yaml` and have
+the same signals diligence it.
 
 ---
 
 ## What breaks in production (and what this repo does about it)
 
-- **LLMs hallucinate sources.** `scoring.verify_citations()` drops any cited URL not in the candidate's provided sources. Verifiability over trust — the fund's own thesis, applied to the tool.
-- **All-LLM is slow and expensive.** Fetch/parse/dedup is plain code; the model is reserved for judgment. Triage routes to a cheap local model; only synthesis hits a frontier model.
-- **"Looks good in a demo, drifts in prod."** `evals/` keeps a labeled set and measures scorer precision so changes are checked, not vibed.
-- **Cold-start velocity.** First run has no history, so velocity falls back to `stars / age`; every run snapshots to SQLite so subsequent runs compute true deltas.
-
-## Limitations & path to reliable signal
-
-Read this honestly: **as it stands, Signal is a high-recall triage funnel with a human in the loop — not an autonomous "good deal" oracle.** That distinction is the whole game. A fund wants a system that cheaply surfaces things it would otherwise miss and filters obvious noise; a person still makes the call.
-
-Already hardened (v0.1):
-
-- **Triangulated composite, not one number.** Score = thesis-fit + log-dampened traction + a credibility adjustment, with sub-scores shown so a reviewer sees *why*. A star spike alone can't carry a candidate.
-- **Word-boundary matching.** No more false positives like `defi` inside `defined`; keywords match tokens/phrases, not any substring.
-- **Anti-gaming penalty.** Buzzword stuffing (many theme hits, thin description) and anti-signals are penalised — see the `buzzword stuffer` case in the eval set.
-- **Fuzzy dedup.** Near-duplicate names collapse (generic words like "labs"/"protocol" ignored), not just exact matches.
-
-Still weak, and honestly so:
-
-- **Star velocity is a lead, not a verdict.** Dampened, but still biased toward dev-tooling/consumer over stealth infra and non-code companies; treat it as one signal among several.
-- **The heuristic still misses *semantic* fit.** It's the offline default and eval baseline; `LLMScorer` is the real judge and needs a real labelled set to calibrate.
-- **Coverage is bounded** by single-source bias and GitHub/Harmonic API limits.
-
-The path to signal that's actually reliable:
-
-1. **Deepen the triangulation.** v0.1 already blends fit + traction + credibility; add contributor quality, on-chain traction, founder pedigree and funding history as further independent signals. No single metric decides; reliability comes from agreement across them.
-2. **Calibrate, don't guess.** Grow the labeled eval set, measure precision / recall (and precision@k), and ship a scorer change only when it doesn't regress.
-3. **Human-in-the-loop.** Every digest review writes labels back to the eval set, so the scorer improves weekly instead of drifting.
-4. **Semantic dedup.** Swap exact-match for embeddings + pgvector.
-
-In short: **reliability here is a process — the eval loop — not a property of any single heuristic.** Precision@k trending up over weeks is the metric to hold it to.
-
-## Roadmap (what I'd build next)
-
-Semantic dedup via embeddings + pgvector · Memo agent (company → source-cited memo) · Pulse (portfolio monitoring) · Scout (candidate triage) · push digest to Airtable/Notion.
+- **LLMs hallucinate sources.** Cited URLs not in a candidate's provided sources are dropped.
+  Verifiability over trust — the fund's own thesis, applied to the tool.
+- **All-LLM is slow and expensive.** Fetch/parse/dedup is plain code; the model is reserved for
+  judgment. Triage routes to a cheap/local model; only synthesis hits a frontier model — and the
+  provider is swappable (Claude / Groq / Gemini / OpenRouter / Ollama).
+- **Free-tier rate limits.** A client-side throttle + 429-retry keeps a batch run under the provider's
+  limit instead of silently falling back mid-run (unit-tested).
+- **"Informational" ≠ "disqualifying."** The credibility screen distinguishes *hard* anti-signals
+  (ponzi/presale) from *soft* notes (early-stage, no recent commits) — soft notes become visible
+  **risks**, not a score penalty, so a high-fit early team isn't zeroed out.
+- **"Looks good in a demo, drifts in prod."** `evals/` keeps a labeled set and is **CI-gated**: a
+  scorer change ships only if precision/recall hold. Seven offline checks gate every push.
 
 ---
 
-*Fixtures in `data/fixtures/` are illustrative, not real companies. Thesis encoded in `config/thesis.yaml` is derived from Frachtis's public writing and is meant to be edited.*
+## Limitations & path to reliable signal
+
+Honestly: **Signal is a high-recall triage funnel with a human in the loop — not an autonomous "good
+deal" oracle.** A fund wants a system that cheaply surfaces what it would otherwise miss and filters
+obvious noise; a person still makes the call.
+
+Still weak, and said plainly: star velocity is a lead, not a verdict (biased toward dev-tooling over
+stealth infra); the heuristic misses *semantic* fit and is only the offline baseline; coverage is
+bounded by API limits and the public-footprint blind spot the backtest exposed.
+
+The path to reliable signal: **deepen the triangulation** (independent signals that must agree),
+**calibrate don't guess** (grow the eval set, hold precision@k), **human-in-the-loop** (every digest
+review writes labels back), **semantic dedup** (embeddings + pgvector).
+
+---
+
+## Secrets & `.env`
+
+`.env` is **gitignored and never committed** — it holds your keys (`GITHUB_TOKEN`, `GROQ_API_KEY`, …).
+`.env.example` *is* committed as the template. To run live on a fresh clone: `cp .env.example .env`
+and add your keys. In the cloud, keys come from **GitHub repo Secrets**, not the file. Everything has
+an offline path, so the repo runs with no secrets at all.
+
+---
+
+## Layout
+
+```
+src/signalfund/   orchestrator · scoring · llm · memo · backtest · webapp · store · dedup · digest
+  sources/        github_velocity · harmonic · messari · nansen · onchain · social · pre_public ·
+                  team · network_radar · watchlist · blockscout
+config/thesis.yaml   the fund thesis the scorer matches against (edit to retune)
+evals/            run_evals.py + 6 acceptance checks (all CI-gated)
+mcp_servers/      custom github-velocity MCP
+.github/workflows/  evals.yml (CI) · sourcing.yml (cloud Run button)
+BACKTEST.md · CLAUDE.md · docs/   playbook, operator guide, research
+```
+
+*Fixtures in `data/fixtures/` are illustrative, not real companies. The thesis in `config/thesis.yaml`
+is derived from Frachtis's public writing and is meant to be edited.*

@@ -12,11 +12,6 @@
     "harmonic": {
       "type": "http",
       "url": "https://mcp.api.harmonic.ai"
-    },
-    "nansen": {
-      "type": "http",
-      "url": "https://mcp.nansen.ai/mcp",
-      "headers": { "Authorization": "Bearer ${NANSEN_API_KEY}" }
     }
   }
 }

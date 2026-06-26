@@ -75,7 +75,10 @@ def _list_memos() -> list:
 # without the key, graceful absence). `env` is the API key checked for key_present.
 SIGNALS = [
     {"name": "code_health",   "tier": "free",    "env": "GITHUB_TOKEN"},
-    {"name": "onchain",       "tier": "free",    "env": None},
+    {"name": "onchain",       "tier": "free",    "env": None,
+     "label": "onchain · DefiLlama", "group": "onchain"},
+    {"name": "nansen",        "tier": "premium", "env": "NANSEN_API_KEY",
+     "label": "onchain · Nansen (smart-money)", "group": "onchain"},
     {"name": "social",        "tier": "free",    "env": "NEYNAR_API_KEY"},
     {"name": "pre_public",    "tier": "free",    "env": "EVERTRACE_API_KEY"},
     # `team` is dual-tier — the two paths toggle independently:
@@ -83,6 +86,8 @@ SIGNALS = [
      "label": "team · GitHub", "group": "team"},
     {"name": "team_harmonic", "tier": "premium", "env": "HARMONIC_API_KEY",
      "label": "team · Harmonic", "group": "team"},
+    {"name": "messari",       "tier": "premium", "env": "MESSARI_API_KEY",
+     "label": "funding / stage-gate · Messari"},
 ]
 
 
