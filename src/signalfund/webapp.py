@@ -405,9 +405,11 @@ def serve(host: str = "127.0.0.1", port: int = 8000, open_browser: bool = True) 
 def main():
     # Defaults are env-configurable so the SAME code runs localhost-only locally and binds
     # 0.0.0.0 on a PaaS — without changing local behavior. Flags still override env.
-    #   SIGNAL_WEB_HOST  local default 127.0.0.1; hosted demo sets 0.0.0.0
-    #   PORT             injected by most PaaS (Render/Heroku/Fly); falls back to SIGNAL_WEB_PORT, then 8000
-    default_host = os.getenv("SIGNAL_WEB_HOST", "127.0.0.1")
+    #   PORT             injected by most PaaS (Render/Heroku/Fly). Its mere presence flips the
+    #                    host default to 0.0.0.0 so the platform can detect the open port; locally
+    #                    (no PORT) we stay on 127.0.0.1. Falls back to SIGNAL_WEB_PORT, then 8000.
+    #   SIGNAL_WEB_HOST  explicit override of the host default (e.g. force 0.0.0.0 or lock to localhost).
+    default_host = os.getenv("SIGNAL_WEB_HOST") or ("0.0.0.0" if os.getenv("PORT") else "127.0.0.1")
     default_port = int(os.getenv("PORT", os.getenv("SIGNAL_WEB_PORT", "8000")))
     p = argparse.ArgumentParser(description="Signal — interactive web UI (stdlib, zero deps)")
     p.add_argument("--host", default=default_host,
