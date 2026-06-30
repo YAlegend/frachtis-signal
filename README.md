@@ -1,6 +1,6 @@
 # Signal — a thesis-driven dealflow sourcing + diligence agent
 
-**Live demo:** **https://signal-wq3r.onrender.com** (free tier — first load may take ~30s to wake).
+**Live demo:** **https://yalegend.github.io/signal/** (static dashboard — always on)
 
 Signal surfaces early-stage crypto/AI companies **before they're obvious**, scores each against a
 fund's *encoded thesis*, and ships a ranked, source-cited digest — plus a **Phase 0 backtest** that
