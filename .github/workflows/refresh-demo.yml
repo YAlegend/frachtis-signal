@@ -1,0 +1,51 @@
+name: Refresh demo dashboard
+
+# Regenerates the OFFLINE demo dashboard and republishes it to /docs, which GitHub Pages
+# serves at https://yalegend.github.io/signal/ . Offline + heuristic scorer => ZERO secrets.
+# Runs weekly and on demand; commits only when the rendered page actually changes. The
+# auto-commit carries [skip ci] so it doesn't re-trigger the evals workflow.
+
+on:
+  workflow_dispatch:          # Actions ▸ "Refresh demo dashboard" ▸ Run workflow
+  schedule:
+    - cron: "0 6 * * 1"       # Mondays 06:00 UTC
+
+permissions:
+  contents: write             # needed to push the refreshed docs/index.html
+
+concurrency:
+  group: refresh-demo
+  cancel-in-progress: true
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install offline deps
+        run: python -m pip install --upgrade pip pyyaml
+
+      - name: Generate demo dashboard
+        env:
+          SIGNAL_LLM_PROVIDER: heuristic
+        run: PYTHONPATH=src python -m signalfund --demo
+
+      - name: Publish to /docs
+        run: cp out/dashboard.html docs/index.html
+
+      - name: Commit if changed
+        run: |
+          if git diff --quiet -- docs/index.html; then
+            echo "No change in docs/index.html — nothing to refresh."
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/index.html
+          git commit -m "Refresh demo dashboard [skip ci]"
+          git push
