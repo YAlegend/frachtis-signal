@@ -161,6 +161,29 @@ def _feedback_votes() -> dict:
     return {name: lbl for name, lbl in latest.items() if lbl in ("up", "down")}
 
 
+def build_state() -> dict:
+    """The /api/state payload — the full snapshot the web UI boots from. Module-level so the
+    static-demo builder (scripts/build_static_demo.py) can bake it without running a server."""
+    thesis_text = THESIS_PATH.read_text(encoding="utf-8")
+    try:
+        parsed = yaml.safe_load(thesis_text)
+    except yaml.YAMLError:
+        parsed = None
+    return {
+        "digest": _read_out_json("digest.json"),
+        "backtest": _read_out_json("backtest_report.json"),
+        "memos": _list_memos(),
+        "thesis": thesis_text,
+        "thesisParsed": parsed,
+        "outDir": str(_out_dir()),
+        "scorer": _scorer_label(),
+        "providers": _providers_state(),
+        "current": llm.current_provider(),
+        "signals": _signals_state(),
+        "feedback": _feedback_votes(),
+    }
+
+
 class Handler(BaseHTTPRequestHandler):
     server_version = "SignalWeb"
 
@@ -242,24 +265,7 @@ class Handler(BaseHTTPRequestHandler):
 
     # ---- handlers ---------------------------------------------------------
     def _state(self) -> dict:
-        thesis_text = THESIS_PATH.read_text(encoding="utf-8")
-        try:
-            parsed = yaml.safe_load(thesis_text)
-        except yaml.YAMLError:
-            parsed = None
-        return {
-            "digest": _read_out_json("digest.json"),
-            "backtest": _read_out_json("backtest_report.json"),
-            "memos": _list_memos(),
-            "thesis": thesis_text,
-            "thesisParsed": parsed,
-            "outDir": str(_out_dir()),
-            "scorer": _scorer_label(),
-            "providers": _providers_state(),
-            "current": llm.current_provider(),
-            "signals": _signals_state(),
-            "feedback": _feedback_votes(),
-        }
+        return build_state()
 
     def _run(self, body: dict) -> None:
         demo = bool(body.get("demo", True))
