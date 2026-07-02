@@ -86,15 +86,31 @@ def main() -> int:
 
     print("[build-static-demo] baking API snapshots…")
     state = webapp.build_state()
+
+    # Showcase: committed agent-generated memo(s) (with their Diligence trail). The always-on demo
+    # can't RUN the agent (no backend/key), so we ship a real example so visitors SEE it. Surfaced
+    # first in the Memos list and PRESERVED across the keyless weekly refresh (which is single-shot).
+    showcase = {}
+    show_dir = ROOT / "data" / "showcase"
+    for f in sorted(show_dir.glob("*.md")) if show_dir.is_dir() else []:
+        showcase[f.name] = f.read_text(encoding="utf-8")
+        if f.name in state["memos"]:
+            state["memos"].remove(f.name)
+        state["memos"].insert(0, f.name)
+
     _write(DATA / "state.json", json.dumps(state, default=str, indent=0))
 
-    # Per-memo markdown (what /api/memo?name=… returns).
+    # Per-memo markdown (what /api/memo?name=… returns) — showcase first, then the demo memos.
     out_memos = webapp._out_dir() / "memos"
     for name in state.get("memos", []):
-        p = out_memos / name
-        if p.is_file():
-            _write(MEMOS / f"{name}.json",
-                   json.dumps({"name": name, "markdown": p.read_text(encoding="utf-8")}, indent=0))
+        if name in showcase:
+            md = showcase[name]
+        else:
+            p = out_memos / name
+            if not p.is_file():
+                continue
+            md = p.read_text(encoding="utf-8")
+        _write(MEMOS / f"{name}.json", json.dumps({"name": name, "markdown": md}, indent=0))
 
     print("[build-static-demo] emitting static SPA assets…")
     import hashlib
