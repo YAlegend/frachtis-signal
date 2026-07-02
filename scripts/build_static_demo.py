@@ -59,9 +59,9 @@ def build_index(src_html: str, ver: str) -> str:
             # relative + cache-busted asset paths (Pages/CDN + browser caching)
             .replace('href="/styles.css"', f'href="styles.css?v={ver}"')
             .replace('src="/app.js"', f'src="app.js?v={ver}"')
-            # turn on static mode before app.js loads
+            # turn on static mode (+ the data cache-bust version) before app.js loads
             .replace('<script src="app.js?v=',
-                     '<script>window.SIGNAL_STATIC=true;</script>\n  <script src="app.js?v=')
+                     f'<script>window.SIGNAL_STATIC=true;window.SIGNAL_VER="{ver}";</script>\n  <script src="app.js?v=')
             # unobtrusive demo note inside the existing sidebar footer (normal flow — can't break grid)
             .replace('      </div>\n    </aside>',
                      f'        {FOOT_NOTE}\n      </div>\n    </aside>'))
@@ -98,7 +98,8 @@ def main() -> int:
             state["memos"].remove(f.name)
         state["memos"].insert(0, f.name)
 
-    _write(DATA / "state.json", json.dumps(state, default=str, indent=0))
+    state_json = json.dumps(state, default=str, indent=0)
+    _write(DATA / "state.json", state_json)
 
     # Per-memo markdown (what /api/memo?name=… returns) — showcase first, then the demo memos.
     out_memos = webapp._out_dir() / "memos"
@@ -116,7 +117,8 @@ def main() -> int:
     import hashlib
     app_js = (WEB / "app.js").read_text(encoding="utf-8")
     css = (WEB / "styles.css").read_text(encoding="utf-8")  # verbatim — page looks identical to local
-    ver = hashlib.md5((app_js + css).encode()).hexdigest()[:8]  # cache-bust on any asset change
+    # version covers assets AND data, so a data-only change (e.g. new memo) also busts the cache
+    ver = hashlib.md5((app_js + css + state_json).encode()).hexdigest()[:8]
     _write(DOCS / "app.js", app_js)
     _write(DOCS / "styles.css", css)
     _write(DOCS / "index.html", build_index((WEB / "index.html").read_text(encoding="utf-8"), ver))

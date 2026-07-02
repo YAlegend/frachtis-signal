@@ -44,7 +44,8 @@ async function staticApi(path, opts) {
   } else {
     file = "data" + path.replace(/^\/api/, "") + ".json";
   }
-  const res = await fetch(file);
+  const v = window.SIGNAL_VER ? "?v=" + window.SIGNAL_VER : "";  // cache-bust data on every rebuild
+  const res = await fetch(file + v);
   if (!res.ok) throw new Error("not available in the static demo");
   return await res.json();
 }
