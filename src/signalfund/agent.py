@@ -187,10 +187,10 @@ _SYS_AGENT = (
 )
 
 
-def _default_decide(goal: str, thesis: dict, transcript: list) -> dict:
+def _decide_prompt(goal: str, thesis: dict, transcript: list) -> str:
     tools_txt = "\n".join(f"- {n}: {d}" for n, d in TOOL_DOCS)
     hist = json.dumps(transcript, default=str)[:4000]
-    prompt = (
+    return (
         f"GOAL: diligence the company '{goal}'.\n"
         f"THESIS: {thesis.get('thesis_summary', '')}\n\n"
         f"TOOLS AVAILABLE:\n{tools_txt}\n\n"
@@ -198,17 +198,51 @@ def _default_decide(goal: str, thesis: dict, transcript: list) -> dict:
         "Pick the next SINGLE action. Prefer free tools; do NOT repeat a call with identical args; "
         "finish once you have enough evidence for a memo. Return ONE JSON object."
     )
-    # triage() for the cheap per-step decision, but fall back to synthesize() if the triage
-    # provider errors (e.g. a configured-but-unreachable local model) so a dead endpoint on the
-    # cheap path doesn't kill the loop.
-    try:
-        raw = llm.triage(prompt, system=_SYS_AGENT, max_tokens=300)
-    except Exception:
-        raw = llm.synthesize(prompt, system=_SYS_AGENT, max_tokens=300)
-    try:
-        return llm.extract_json(raw)
-    except Exception:
-        return {"action": "finish", "reason": "could not parse a decision"}
+
+
+def _provider_order() -> list:
+    """Provider order for a decision: the pinned choice (SIGNAL_LLM_PROVIDER) first, then the
+    cheap-first triage order. So we honour the user's dropdown but can fall through it."""
+    order = []
+    envp = os.getenv("SIGNAL_LLM_PROVIDER")
+    if envp and envp != "heuristic":
+        order.append(envp)
+    for p in llm._TRIAGE_ORDER:
+        if p not in order:
+            order.append(p)
+    return order
+
+
+def _make_decider():
+    """A decide(goal, thesis, transcript) that AUTO-SKIPS dead providers: it tries each available
+    provider in turn (pinned first) and uses the first that actually responds — so a
+    configured-but-unreachable model (e.g. a local Ollama that isn't running) is skipped instead of
+    silently ending the loop with no tools. It remembers the working provider in `.picked` so later
+    steps and the final memo reuse it directly."""
+    picked = {"p": None}
+
+    def decide(goal: str, thesis: dict, transcript: list) -> dict:
+        prompt = _decide_prompt(goal, thesis, transcript)
+        order = ([picked["p"]] if picked["p"] else []) + [p for p in _provider_order() if p != picked["p"]]
+        last = None
+        for p in order:
+            if not llm._provider_available(p):
+                continue
+            try:
+                raw = llm.triage(prompt, system=_SYS_AGENT, max_tokens=300, provider=p)
+            except Exception as e:  # noqa: BLE001 — dead/unreachable provider: skip to the next
+                last = e
+                continue
+            picked["p"] = p
+            try:
+                return llm.extract_json(raw)
+            except Exception:
+                return {"action": "finish", "reason": "could not parse a decision"}
+        return {"action": "finish",
+                "reason": f"no working LLM provider ({type(last).__name__ if last else 'none available'})"}
+
+    decide.picked = picked
+    return decide
 
 
 def _max_steps() -> int:
@@ -256,7 +290,7 @@ def run_diligence(candidate: Candidate, thesis: dict, *, tools=None, decide=None
                 "memo": memo.build_memo(candidate, thesis)}
 
     tools = default_tools() if tools is None else tools
-    decide = _default_decide if decide is None else decide
+    decide = _make_decider() if decide is None else decide
     steps = _max_steps() if max_steps is None else max_steps
 
     goal = candidate.name
@@ -306,6 +340,12 @@ def run_diligence(candidate: Candidate, thesis: dict, *, tools=None, decide=None
         if u not in urls:
             urls.append(u)
     candidate.raw["source_urls"] = urls
+
+    # Pin the provider the loop actually got working (skipping any dead one) so the memo synthesis
+    # uses it too — instead of retrying the dead pinned provider and falling back to a heuristic memo.
+    picked = getattr(decide, "picked", {}).get("p") if hasattr(decide, "picked") else None
+    if picked:
+        os.environ["SIGNAL_LLM_PROVIDER"] = picked
 
     body = memo.build_memo(candidate, thesis)
     return {"agent": True, "trail": trail, "sources": sources, "memo": _prepend_trail(body, trail)}
