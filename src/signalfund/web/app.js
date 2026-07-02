@@ -277,7 +277,10 @@ function card(s, rank, origIdx) {
         ${bars(s.subscores)}
         ${c.summary ? `<p class="muted" style="font-size:13px">${esc(c.summary)}</p>` : ""}
         <div class="sources">${sources}</div>
-        <div class="detail-actions"><button class="ghost" data-memo="${origIdx}">✎ Write memo</button></div>
+        <div class="detail-actions">
+          <button class="ghost" data-memo="${origIdx}">✎ Write memo</button>
+          <button class="ghost" data-agent="${origIdx}" title="Run the tool-using diligence agent — it picks which sources to check, then writes the memo with a Diligence trail">🤖 Agent memo</button>
+        </div>
       </div>
     </div>
   </article>`;
@@ -324,6 +327,8 @@ $("#cards").addEventListener("click", (e) => {
   if (thumb) { e.stopPropagation(); vote(Number(thumb.closest(".card").dataset.idx), thumb.dataset.fb); return; }
   const memoBtn = e.target.closest("[data-memo]");
   if (memoBtn) { e.stopPropagation(); writeMemo(Number(memoBtn.dataset.memo)); return; }
+  const agentBtn = e.target.closest("[data-agent]");
+  if (agentBtn) { e.stopPropagation(); writeMemo(Number(agentBtn.dataset.agent), true); return; }
   const c = e.target.closest(".card");
   if (c) c.classList.toggle("open");
 });
@@ -348,12 +353,12 @@ async function vote(origIdx, label) {
 $("#min-score").addEventListener("input", (e) => { $("#min-val").textContent = e.target.value; renderDigest(); });
 
 /* ---------- memos ---------- */
-async function writeMemo(idx) {
-  toast("Generating memo…");
+async function writeMemo(idx, useAgent) {
+  toast(useAgent ? "Diligence agent running — choosing tools…" : "Generating memo…");
   try {
     const r = await api("/api/memo", {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ index: idx, scorer_provider: state.scorerProvider }),
+      body: JSON.stringify({ index: idx, scorer_provider: state.scorerProvider, agent: !!useAgent }),
     });
     if (!r.ok) return toast(r.error || "memo failed", true);
     if (!state.memos.includes(r.name)) state.memos.push(r.name);
@@ -361,7 +366,8 @@ async function writeMemo(idx) {
     show("memos");
     renderMemoList();
     openMemo(r.name, r.markdown);
-    toast("Memo written → out/memos/" + r.name);
+    if (useAgent && r.agent) toast(`Agent memo — tools chosen: ${(r.tools || []).join(", ") || "none"}`);
+    else toast("Memo written → out/memos/" + r.name);
   } catch (e) { toast(e.message, true); }
 }
 

@@ -327,14 +327,21 @@ class Handler(BaseHTTPRequestHandler):
         thesis = yaml.safe_load(THESIS_PATH.read_text(encoding="utf-8"))
         _apply_scorer_provider(body)   # user-chosen LLM provider for this memo
         buf = io.StringIO()
+        agent_used, trail = False, []
         with contextlib.redirect_stdout(buf):
-            md = memo_mod.build_memo(c, thesis)
+            if body.get("agent"):        # run the tool-using diligence agent (visible trail)
+                from . import agent as agent_mod
+                res = agent_mod.run_diligence(c, thesis)
+                md, agent_used, trail = res["memo"], res.get("agent", False), res.get("trail", [])
+            else:
+                md = memo_mod.build_memo(c, thesis)
         out = _out_dir() / "memos"
         out.mkdir(parents=True, exist_ok=True)
         fname = f"{memo_mod._slug(c.name)}.md"
         (out / fname).write_text(md, encoding="utf-8")
         self._json({"ok": True, "name": fname, "markdown": md, "log": buf.getvalue(),
-                    "scorer": _scorer_label()})
+                    "scorer": _scorer_label(), "agent": agent_used,
+                    "tools": [s.get("tool") for s in trail if s.get("tool") != "finish"]})
 
     def _feedback(self, body: dict) -> None:
         """Record a 👍/👎 (or 'clear') on a digest candidate, by digest index.
