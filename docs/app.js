@@ -13,9 +13,11 @@ function info(tip, pos) {
 }
 
 const state = { digest: [], backtest: null, memos: [], thesisParsed: null, thesis: {}, feedback: {},
-                signals: [], enabled: {}, providers: [], scorerProvider: "auto", scorer: "?", mode: "demo" };
+                signals: [], enabled: {}, providers: [], scorerProvider: "groq", scorer: "?", mode: "demo" };
 const LS_SIGNALS = "signal.enabledSignals";
-const LS_SCORER = "signal.scorerProvider";
+// v2: default scorer is now Groq (free Llama 3.3 70B). Bumping the key supersedes any older saved
+// choice (e.g. a stale Ollama pick) so the new default takes effect; users can still change it.
+const LS_SCORER = "signal.scorerProvider.v2";
 
 async function api(path, opts) {
   // Static-demo mode (GitHub Pages): no Python backend. Reads are served from baked JSON
@@ -613,7 +615,9 @@ async function boot() {
     state.signals = s.signals || [];
     state.scorer = s.scorer || "?";
     state.providers = s.providers || [];
-    state.scorerProvider = localStorage.getItem(LS_SCORER) || "auto";
+    // Default to Groq (free Llama) when it's configured; else Auto. A saved choice always wins.
+    const hasGroq = (state.providers || []).some((p) => p.name === "groq");
+    state.scorerProvider = localStorage.getItem(LS_SCORER) || (hasGroq ? "groq" : "auto");
     state.thesisParsed = s.thesisParsed || null;
     state.thesis = s.thesisParsed ? JSON.parse(JSON.stringify(s.thesisParsed)) : {};
     $("#thesis-text").value = s.thesis || "";
